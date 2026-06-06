@@ -243,7 +243,7 @@ CREATE POLICY "Muted users are viewable by hosts"
 
 CREATE POLICY "Hosts can manage mutes"
   ON muted_users FOR INSERT
-  USING (EXISTS (SELECT 1 FROM room_members WHERE room_id = muted_users.room_id AND user_id = auth.uid() AND role = 'host'));
+  WITH CHECK (EXISTS (SELECT 1 FROM room_members WHERE room_id = muted_users.room_id AND user_id = auth.uid() AND role = 'host'));
 
 CREATE POLICY "Hosts can unmute"
   ON muted_users FOR DELETE
