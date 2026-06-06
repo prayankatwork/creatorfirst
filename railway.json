@@ -1,0 +1,6 @@
+{
+  "rootDirectory": "server",
+  "build": {
+    "builder": "NIXPACKS"
+  }
+}
