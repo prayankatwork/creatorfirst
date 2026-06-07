@@ -9,7 +9,7 @@ interface UseAuthReturn {
   user: UserProfile | null;
   supabaseUser: User | null;
   isLoading: boolean;
-  signInWithGoogle: () => Promise<void>;
+  signInWithGitHub: () => Promise<void>;
   signOut: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
@@ -61,21 +61,17 @@ export function useAuth(): UseAuthReturn {
     return () => subscription.unsubscribe();
   }, [fetchProfile]);
 
-  const signInWithGoogle = useCallback(async () => {
+  const signInWithGitHub = useCallback(async () => {
     const supabase = createClient();
     const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
+      provider: 'github',
       options: {
         redirectTo: `${window.location.origin}/auth/callback`,
-        queryParams: {
-          access_type: 'offline',
-          prompt: 'consent',
-        },
       },
     });
 
     if (error) {
-      console.error('Google sign-in error:', error.message);
+      console.error('GitHub sign-in error:', error.message);
     }
   }, []);
 
@@ -99,7 +95,7 @@ export function useAuth(): UseAuthReturn {
     user,
     supabaseUser,
     isLoading,
-    signInWithGoogle,
+    signInWithGitHub,
     signOut,
     refreshUser,
   };

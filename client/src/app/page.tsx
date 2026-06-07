@@ -21,7 +21,7 @@ import {
 } from 'react-icons/fi';
 
 export default function HomePage() {
-  const { user, isLoading, signInWithGoogle, signOut } = useAuth();
+  const { user, isLoading, signInWithGitHub, signOut } = useAuth();
   const router = useRouter();
   const [roomTitle, setRoomTitle] = useState('');
   const [isCreating, setIsCreating] = useState(false);
@@ -152,8 +152,8 @@ export default function HomePage() {
                   </button>
                 </div>
               ) : (
-                <button onClick={signInWithGoogle} className="btn-primary text-sm">
-                  Sign In with Google
+                <button onClick={signInWithGitHub} className="btn-primary text-sm">
+                  Sign In with GitHub
                 </button>
               )}
             </div>
@@ -194,7 +194,7 @@ export default function HomePage() {
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
               {!user ? (
-                <button onClick={signInWithGoogle} className="btn-primary text-base px-8 py-3">
+                <button onClick={signInWithGitHub} className="btn-primary text-base px-8 py-3">
                   Get Started Free
                   <FiArrowRight className="w-4 h-4" />
                 </button>
@@ -266,7 +266,7 @@ export default function HomePage() {
               {
                 step: '01',
                 title: 'Create a Room',
-                desc: 'Sign in with Google and name your watch party room. Get a shareable link instantly.',
+                desc: 'Sign in with GitHub and name your watch party room. Get a shareable link instantly.',
               },
               {
                 step: '02',
