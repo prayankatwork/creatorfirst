@@ -25,7 +25,7 @@ export function useAuth(): UseAuthReturn {
       .from('profiles')
       .select('*')
       .eq('id', userId)
-      .single();
+      .maybeSingle();
 
     if (profile) {
       setUser(profile as UserProfile);

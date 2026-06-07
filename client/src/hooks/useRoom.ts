@@ -78,14 +78,14 @@ export function useRoom(): UseRoomReturn {
       { data: history },
       { data: analytics },
     ] = await Promise.all([
-      supabase.from('playback_states').select('*').eq('room_id', room.id).single(),
+      supabase.from('playback_states').select('*').eq('room_id', room.id).maybeSingle(),
       supabase.from('videos').select('*').eq('room_id', room.id).order('position', { ascending: true }),
       supabase.from('messages').select('*').eq('room_id', room.id).eq('is_deleted', false).order('created_at', { ascending: true }).limit(100),
       supabase.from('suggestions').select('*').eq('room_id', room.id).order('created_at', { ascending: false }).limit(50),
       supabase.from('room_members').select('*, profile:profiles(*)').eq('room_id', room.id),
       supabase.from('muted_users').select('user_id').eq('room_id', room.id),
       supabase.from('session_history').select('*').eq('room_id', room.id).order('watched_at', { ascending: false }).limit(50),
-      supabase.from('room_analytics').select('*').eq('room_id', room.id).single(),
+      supabase.from('room_analytics').select('*').eq('room_id', room.id).maybeSingle(),
     ]);
 
     return {
@@ -140,7 +140,7 @@ export function useRoom(): UseRoomReturn {
         .select('*')
         .eq('room_id', state.room.id)
         .eq('user_id', currentUser.id)
-        .single();
+        .maybeSingle();
 
       if (existing) {
         await supabase
@@ -325,7 +325,7 @@ export function useRoom(): UseRoomReturn {
     const { data: room } = await supabase.from('rooms').select('host_id').eq('id', roomId).single();
     if (!room || room.host_id !== userId) { setError('Only the host can control playback'); return; }
 
-    const { data: playback } = await supabase.from('playback_states').select('timestamp').eq('room_id', roomId).single();
+    const { data: playback } = await supabase.from('playback_states').select('timestamp').eq('room_id', roomId).maybeSingle();
     await supabase.from('playback_states').update({ playback_state: 'paused', timestamp: playback?.timestamp || 0, last_updated: new Date().toISOString() }).eq('room_id', roomId);
     broadcast('video:pause');
   }, [broadcast]);
@@ -357,7 +357,7 @@ export function useRoom(): UseRoomReturn {
 
     await supabase.from('videos').update({ is_current: false, status: 'played' }).eq('room_id', roomId).eq('status', 'playing');
 
-    const { data: existingPlayback } = await supabase.from('playback_states').select('*').eq('room_id', roomId).single();
+    const { data: existingPlayback } = await supabase.from('playback_states').select('*').eq('room_id', roomId).maybeSingle();
     if (existingPlayback) {
       await supabase.from('playback_states').update({ youtube_video_id, title, channel_name, channel_avatar, timestamp: 0, playback_state: 'paused', last_updated: new Date().toISOString() }).eq('room_id', roomId);
     } else {
@@ -373,7 +373,7 @@ export function useRoom(): UseRoomReturn {
     const roomId = roomIdRef.current;
     if (!supabase || !roomId) return;
 
-    const { data: state } = await supabase.from('playback_states').select('*').eq('room_id', roomId).single();
+    const { data: state } = await supabase.from('playback_states').select('*').eq('room_id', roomId).maybeSingle();
     if (state) {
       broadcast('video:sync', { timestamp: state.timestamp, playback_state: state.playback_state });
     }
@@ -385,7 +385,7 @@ export function useRoom(): UseRoomReturn {
     const roomId = roomIdRef.current;
     if (!supabase || !roomId) return;
 
-    const { data: lastVideo } = await supabase.from('videos').select('position').eq('room_id', roomId).order('position', { ascending: false }).limit(1).single();
+    const { data: lastVideo } = await supabase.from('videos').select('position').eq('room_id', roomId).order('position', { ascending: false }).limit(1).maybeSingle();
     const nextPosition = (lastVideo?.position ?? -1) + 1;
 
     await supabase.from('videos').insert({
