@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useRef, useCallback, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { RoomState } from '@/types';
-import { FiPlay, FiPause, FiRefreshCw } from 'react-icons/fi';
+import { FiWifi, FiWifiOff, FiRefreshCw } from 'react-icons/fi';
 
 interface YouTubePlayerProps {
   roomState: RoomState;
@@ -23,6 +23,8 @@ declare global {
   }
 }
 
+type SyncState = 'connecting' | 'synced' | 'syncing' | 'drifted';
+
 export default function YouTubePlayer({
   roomState,
   isHost,
@@ -37,10 +39,9 @@ export default function YouTubePlayer({
   const playerRef = useRef<any>(null);
   const playerContainerRef = useRef<HTMLDivElement>(null);
   const [isPlayerReady, setIsPlayerReady] = useState(false);
-  const [currentVideoId, setCurrentVideoId] = useState<string>('');
-  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncState, setSyncState] = useState<SyncState>('connecting');
+  const [syncOffset, setSyncOffset] = useState<number>(0);
   const isHostRef = useRef(isHost);
-  const syncTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isSeekingRef = useRef(false);
 
   isHostRef.current = isHost;
@@ -58,18 +59,8 @@ export default function YouTubePlayer({
 
   // Initialize player when API is ready
   useEffect(() => {
-    const onReady = () => {
-      setIsPlayerReady(true);
-    };
-
-    window.onYouTubeIframeAPIReady = () => {
-      onReady();
-    };
-
-    // If API already loaded
-    if (window.YT?.Player) {
-      onReady();
-    }
+    window.onYouTubeIframeAPIReady = () => setIsPlayerReady(true);
+    if (window.YT?.Player) setIsPlayerReady(true);
   }, []);
 
   // Create/destroy player
@@ -77,7 +68,7 @@ export default function YouTubePlayer({
     if (!isPlayerReady || !playerContainerRef.current) return;
 
     if (playerRef.current) {
-      playerRef.current.destroy();
+      try { playerRef.current.destroy(); } catch {}
     }
 
     const videoId = roomState.playback?.youtube_video_id || '';
@@ -109,91 +100,103 @@ export default function YouTubePlayer({
         },
         onStateChange: (event: any) => {
           if (!isHostRef.current) return;
-
-          const state = event.data;
           if (isSeekingRef.current) return;
 
-          if (state === 1) {
-            // Playing
-            onPlay();
-          } else if (state === 2) {
-            // Paused
-            onPause();
-          } else if (state === 0) {
-            // Ended - auto play next video in queue
-            if (isHostRef.current && onVideoEnded) {
-              onVideoEnded();
-            } else {
-              onPause();
-            }
+          const state = event.data;
+          if (state === 1) onPlay();
+          else if (state === 2) onPause();
+          else if (state === 0) {
+            if (isHostRef.current && onVideoEnded) onVideoEnded();
+            else onPause();
           }
         },
       },
     });
 
-    setCurrentVideoId(videoId);
-
     return () => {
       if (playerRef.current) {
-        try {
-          playerRef.current.destroy();
-        } catch {}
+        try { playerRef.current.destroy(); } catch {}
         playerRef.current = null;
       }
     };
   }, [isPlayerReady, roomState.playback?.youtube_video_id]);
 
-  // Sync timestamp changes from host
+  // ── HOST: Send precise timestamp every 1 second ──
   useEffect(() => {
-    if (!playerRef.current || !isPlayerReady) return;
-    
-    const sync = roomState.playback;
-    if (!sync) return;
-
-    if (isHostRef.current) return;
-
-    const currentPlayerState = playerRef.current.getPlayerState();
-    const currentTime = playerRef.current.getCurrentTime();
-    const timeDiff = Math.abs(currentTime - sync.timestamp);
-
-    // Only seek if the difference is more than 2 seconds
-    if (timeDiff > 2 && sync.timestamp > 0) {
-      playerRef.current.seekTo(sync.timestamp, true);
-    }
-
-    if (sync.playback_state === 'playing' && currentPlayerState !== 1) {
-      playerRef.current.playVideo();
-    } else if (sync.playback_state === 'paused' && currentPlayerState === 1) {
-      playerRef.current.pauseVideo();
-    }
-  }, [roomState.playback?.timestamp, roomState.playback?.playback_state]);
-
-  // Sync interval (for continuous sync during playback)
-  useEffect(() => {
-    if (!isHostRef.current) return;
+    if (!isHost || !isPlayerReady) return;
 
     const interval = setInterval(() => {
-      if (playerRef.current && playerRef.current.getCurrentTime) {
+      if (playerRef.current?.getCurrentTime) {
         try {
           const time = playerRef.current.getCurrentTime();
           onSeek(time);
         } catch {}
       }
-    }, 5000);
+    }, 1000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [isHost, isPlayerReady, onSeek]);
 
-  const handleVideoChange = () => {
-    // Handled by parent via VideoInput
-  };
+  // ── VIEWER: Continuous sync loop every 500ms ──
+  useEffect(() => {
+    if (isHost || !isPlayerReady || !playerRef.current) return;
+
+    // Initial short delay to let player initialize
+    const timer = setTimeout(() => {
+      const interval = setInterval(() => {
+        if (!playerRef.current?.getCurrentTime) return;
+
+        try {
+          const sync = roomState.playback;
+          if (!sync) return;
+
+          const currentTime = playerRef.current.getCurrentTime();
+          const currentState = playerRef.current.getPlayerState();
+          const timeDiff = Math.abs(currentTime - sync.timestamp);
+
+          setSyncOffset(Math.round(timeDiff * 10) / 10);
+
+          // Sync playback state (play/pause)
+          if (sync.playback_state === 'playing' && currentState !== 1) {
+            setSyncState('syncing');
+            playerRef.current.playVideo();
+          } else if (sync.playback_state === 'paused' && currentState === 1) {
+            setSyncState('syncing');
+            playerRef.current.pauseVideo();
+          }
+
+          // Sync position — very aggressive correction for extreme sync
+          if (sync.timestamp > 0) {
+            if (timeDiff > 0.3) {
+              // Drifted — seek to correct position
+              setSyncState('syncing');
+              playerRef.current.seekTo(sync.timestamp, true);
+            } else if (timeDiff > 0.1) {
+              // Slight drift — show warning but don't seek (smooth playout)
+              setSyncState('drifted');
+            } else {
+              setSyncState('synced');
+            }
+          } else {
+            setSyncState('synced');
+          }
+        } catch {
+          setSyncState('connecting');
+        }
+      }, 500);
+
+      return () => clearInterval(interval);
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [isHost, isPlayerReady, roomState.playback?.youtube_video_id]);
 
   if (!roomState.playback?.youtube_video_id) {
     return (
       <div className="aspect-video bg-surface-900 flex items-center justify-center">
         <div className="text-center">
           <div className="w-16 h-16 rounded-2xl bg-surface-800 flex items-center justify-center mx-auto mb-3">
-            <FiPlay className="w-8 h-8 text-surface-500" />
+            <FiRefreshCw className="w-8 h-8 text-surface-500" />
           </div>
           <p className="text-surface-400 text-sm">Waiting for host to play a video...</p>
           {isHost && (
@@ -204,6 +207,24 @@ export default function YouTubePlayer({
     );
   }
 
+  // ── Sync meter colors ──
+  const syncColor =
+    syncState === 'synced' ? 'bg-green-400' :
+    syncState === 'drifted' ? 'bg-yellow-400' :
+    syncState === 'syncing' ? 'bg-brand-400' :
+    'bg-red-400';
+
+  const syncLabel =
+    syncState === 'synced' ? `${syncOffset}s` :
+    syncState === 'drifted' ? `${syncOffset}s` :
+    syncState === 'syncing' ? 'Syncing...' :
+    'Connecting...';
+
+  const syncIcon =
+    syncState === 'synced' ? null :
+    syncState === 'drifted' ? null :
+    <FiRefreshCw className="w-3 h-3 animate-spin" />;
+
   return (
     <div className="relative">
       <div
@@ -212,20 +233,48 @@ export default function YouTubePlayer({
         style={{ pointerEvents: isHost ? 'auto' : 'none' }}
       />
 
-      {/* Sync indicator */}
-      {isSyncing && (
-        <div className="absolute top-2 right-2 flex items-center gap-1.5 px-2 py-1 rounded-lg bg-surface-900/80 backdrop-blur-sm">
-          <FiRefreshCw className="w-3 h-3 text-brand-400 animate-spin" />
-          <span className="text-xs text-brand-300">Syncing...</span>
-        </div>
-      )}
+      {/* Sync meter — top-right shows exact sync status */}
+      <div className="absolute top-2 right-2 flex items-center gap-1.5 px-2 py-1 rounded-lg bg-surface-950/80 backdrop-blur-sm border border-surface-700/50">
+        {syncIcon}
+        <div className={`w-2 h-2 rounded-full ${syncColor} transition-colors duration-300`} />
+        <span className={`text-xs font-medium tabular-nums ${
+          syncState === 'synced' ? 'text-green-300' :
+          syncState === 'drifted' ? 'text-yellow-300' :
+          syncState === 'syncing' ? 'text-brand-300' :
+          'text-red-300'
+        }`}>
+          {syncLabel}
+        </span>
+        {/* Sync offset bar */}
+        {!isHost && (
+          <div className="hidden sm:flex items-center gap-1 ml-1">
+            <div className="w-12 h-1.5 rounded-full bg-surface-700 overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all duration-300 ${
+                  syncOffset <= 0.1 ? 'bg-green-400' :
+                  syncOffset <= 0.3 ? 'bg-yellow-400' :
+                  'bg-red-400'
+                }`}
+                style={{ width: `${Math.min(syncOffset * 100, 100)}%` }}
+              />
+            </div>
+          </div>
+        )}
+      </div>
 
-      {/* Connection status */}
-      <div className="absolute bottom-2 left-2 flex items-center gap-1.5 px-2 py-1 rounded-lg bg-surface-900/80 backdrop-blur-sm">
-        <div className={`w-1.5 h-1.5 rounded-full ${roomState.playback?.playback_state === 'playing' ? 'bg-green-400' : 'bg-yellow-400'}`} />
+      {/* Playback status — bottom-left */}
+      <div className="absolute bottom-2 left-2 flex items-center gap-1.5 px-2 py-1 rounded-lg bg-surface-950/80 backdrop-blur-sm border border-surface-700/50">
+        {roomState.playback?.playback_state === 'playing' ? (
+          <FiWifi className="w-3 h-3 text-green-400" />
+        ) : (
+          <FiWifiOff className="w-3 h-3 text-yellow-400" />
+        )}
         <span className="text-xs text-surface-400">
           {roomState.playback?.playback_state === 'playing' ? 'Live' : 'Paused'}
         </span>
+        {isHost && (
+          <span className="text-[10px] text-brand-400 font-medium ml-1">HOST</span>
+        )}
       </div>
     </div>
   );
