@@ -17,6 +17,9 @@ export const metadata: Metadata = {
     title: 'CreatorFirst',
     description: 'Watch together. React together. Keep creators first.',
   },
+  icons: {
+    icon: '/favicon.svg',
+  },
 };
 
 export const viewport: Viewport = {
