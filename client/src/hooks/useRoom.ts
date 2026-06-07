@@ -183,6 +183,27 @@ export function useRoom(): UseRoomReturn {
       } : prev);
     });
 
+    channel.on('broadcast', { event: 'video:change' }, (payload: any) => {
+      setRoomState(prev => prev ? {
+        ...prev,
+        playback: {
+          ...prev.playback,
+          youtube_video_id: payload.youtube_video_id,
+          title: payload.title || '',
+          channel_name: payload.channel_name || '',
+          channel_avatar: payload.channel_avatar || '',
+          timestamp: 0,
+          playback_state: 'paused' as PlaybackStateType,
+        } as PlaybackState,
+        current_video_info: {
+          video_id: payload.youtube_video_id,
+          title: payload.title || '',
+          channel_name: payload.channel_name || '',
+          channel_avatar: payload.channel_avatar || '',
+        },
+      } : prev);
+    });
+
     channel.on('broadcast', { event: 'video:sync' }, (payload: any) => {
       setRoomState(prev => prev && prev.playback ? {
         ...prev,
@@ -221,8 +242,8 @@ export function useRoom(): UseRoomReturn {
       setRoomState(prev => prev ? { ...prev, suggestions: suggestions || [] } : null);
     });
 
-    // Playback state changes
-    channel.on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'playback_states', filter: roomFilter } as const, (payload: any) => {
+    // Playback state changes (both INSERT and UPDATE)
+    channel.on('postgres_changes', { event: '*', schema: 'public', table: 'playback_states', filter: roomFilter } as const, (payload: any) => {
       const pb = payload.new as PlaybackState;
       setRoomState(prev => prev ? {
         ...prev,
@@ -366,7 +387,9 @@ export function useRoom(): UseRoomReturn {
 
     await supabase.from('session_history').insert({ room_id: roomId, youtube_video_id, title, channel_name, channel_avatar });
     try { await supabase.rpc('increment_videos_watched', { room_id: roomId }); } catch {}
-  }, []);
+
+    broadcast('video:change', { youtube_video_id, title, channel_name, channel_avatar });
+  }, [broadcast]);
 
   const requestSync = useCallback(async () => {
     const supabase = supabaseRef.current;

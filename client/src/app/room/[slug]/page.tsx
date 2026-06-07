@@ -179,7 +179,7 @@ export default function RoomPage() {
 
           {/* Mobile View Controls */}
           <div className="lg:hidden flex items-center gap-1 px-3 py-2 border-b border-surface-800/50 overflow-x-auto scrollbar-hide">
-            {(['chat', 'queue', 'suggestions', 'analytics'] as const).map((panel) => (
+            {(['chat', ...(isHost ? ['queue', 'suggestions', 'analytics'] : [])] as const).map((panel) => (
               <button
                 key={panel}
                 onClick={() => {
@@ -270,9 +270,9 @@ export default function RoomPage() {
 
         {/* Right Panel (Desktop) */}
         <aside className="hidden lg:flex lg:w-80 xl:w-96 flex-col border-l border-surface-800/50 bg-surface-900/50">
-          {/* Panel Tabs */}
+          {/* Panel Tabs - viewers only see chat */}
           <div className="flex items-center border-b border-surface-800/50">
-            {(['chat', 'queue', 'suggestions', 'analytics'] as const).map((panel) => (
+            {(['chat', ...(isHost ? ['queue', 'suggestions', 'analytics'] : [])] as const).map((panel) => (
               <button
                 key={panel}
                 onClick={() => setActivePanel(panel)}
