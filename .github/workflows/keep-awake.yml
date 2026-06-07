@@ -11,5 +11,5 @@ jobs:
     steps:
       - name: Ping health endpoint
         run: |
-          curl -s -o /dev/null -w "%{http_code}" \
+          curl -s --fail -o /dev/null \
             https://creatorfirst.vercel.app/api/health
