@@ -179,7 +179,7 @@ export default function RoomPage() {
 
           {/* Mobile View Controls */}
           <div className="lg:hidden flex items-center gap-1 px-3 py-2 border-b border-surface-800/50 overflow-x-auto scrollbar-hide">
-            {(['chat', ...(isHost ? ['queue', 'suggestions', 'analytics'] : [])] as const).map((panel) => (
+            {(isHost ? (['chat', 'queue', 'suggestions', 'analytics'] as const) : (['chat'] as const)).map((panel) => (
               <button
                 key={panel}
                 onClick={() => {
@@ -189,7 +189,7 @@ export default function RoomPage() {
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap ${
                   activePanel === panel && showMobilePanel
                     ? 'bg-brand-500/20 text-brand-300'
-                    : 'text-surface-400 hover:text-surface-200 hover:bg-surface-800/50'
+                    : 'text-surface-400 hover:text-surface-300 hover:bg-surface-800/50'
                 }`}
               >
                 {panel.charAt(0).toUpperCase() + panel.slice(1)}
@@ -272,7 +272,7 @@ export default function RoomPage() {
         <aside className="hidden lg:flex lg:w-80 xl:w-96 flex-col border-l border-surface-800/50 bg-surface-900/50">
           {/* Panel Tabs - viewers only see chat */}
           <div className="flex items-center border-b border-surface-800/50">
-            {(['chat', ...(isHost ? ['queue', 'suggestions', 'analytics'] : [])] as const).map((panel) => (
+            {(isHost ? (['chat', 'queue', 'suggestions', 'analytics'] as const) : (['chat'] as const)).map((panel) => (
               <button
                 key={panel}
                 onClick={() => setActivePanel(panel)}

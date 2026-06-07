@@ -243,7 +243,17 @@ export function useRoom(): UseRoomReturn {
     });
 
     // Playback state changes (both INSERT and UPDATE)
-    channel.on('postgres_changes', { event: '*', schema: 'public', table: 'playback_states', filter: roomFilter } as const, (payload: any) => {
+    channel.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'playback_states', filter: roomFilter } as const, (payload: any) => {
+      const pb = payload.new as PlaybackState;
+      setRoomState(prev => prev ? {
+        ...prev,
+        playback: pb,
+        current_video_info: { video_id: pb.youtube_video_id, title: pb.title, channel_name: pb.channel_name, channel_avatar: pb.channel_avatar },
+      } : null);
+    });
+
+    // Playback state updates
+    channel.on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'playback_states', filter: roomFilter } as const, (payload: any) => {
       const pb = payload.new as PlaybackState;
       setRoomState(prev => prev ? {
         ...prev,
