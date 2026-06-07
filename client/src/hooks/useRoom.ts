@@ -268,17 +268,55 @@ export function useRoom(): UseRoomReturn {
       setRoomState(prev => prev ? { ...prev, history: [entry, ...prev.history] } : null);
     });
 
-    // Presence
+    // Presence — real-time viewer tracking (instant, no DB roundtrip)
     channel.on('presence', { event: 'sync' }, () => {
-      // Re-fetch members to update online status
-      supabase.from('room_members')
-        .select('*, profile:profiles(*)')
-        .eq('room_id', state.room.id)
-        .then(({ data: members }) => {
-          if (members) {
-            setRoomState(prev => prev ? { ...prev, members } : null);
+      const presenceState = channel.presenceState();
+      const onlineUsers: { user_id: string; name: string; avatar: string }[] = [];
+      
+      Object.values(presenceState).forEach((presences: any) => {
+        presences.forEach((p: any) => {
+          if (p.user_id) {
+            onlineUsers.push({
+              user_id: p.user_id,
+              name: p.name || 'Anonymous',
+              avatar: p.avatar || '',
+            });
           }
         });
+      });
+
+      // Deduplicate by user_id (same user on multiple tabs)
+      const seen = new Set<string>();
+      const uniqueUsers = onlineUsers.filter(u => {
+        if (seen.has(u.user_id)) return false;
+        seen.add(u.user_id);
+        return true;
+      });
+
+      // Merge presence data with existing DB members (for roles and profiles)
+      setRoomState(prev => {
+        if (!prev) return null;
+        const updatedMembers = prev.members.map(m => ({
+          ...m,
+          is_online: uniqueUsers.some(u => u.user_id === m.user_id),
+        }));
+        // Add any presence-only users not yet in DB members
+        uniqueUsers.forEach(u => {
+          if (!updatedMembers.some(m => m.user_id === u.user_id)) {
+            updatedMembers.push({
+              id: u.user_id,
+              user_id: u.user_id,
+              room_id: prev.room.id,
+              role: u.user_id === prev.room.host_id ? 'host' : 'viewer',
+              joined_at: new Date().toISOString(),
+              last_active_at: new Date().toISOString(),
+              profile: { id: u.user_id, name: u.name, avatar: u.avatar, email: '', created_at: '' },
+              is_online: true,
+            } as any);
+          }
+        });
+        return { ...prev, members: updatedMembers };
+      });
     });
 
     channel.subscribe(async (status) => {

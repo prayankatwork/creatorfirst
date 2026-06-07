@@ -138,13 +138,17 @@ export default function RoomPage() {
               {socket.isConnected ? 'Connected' : 'Reconnecting...'}
             </span>
 
-            {/* Viewer count */}
-            {roomState.members.length > 0 && (
-              <span className="hidden sm:flex items-center gap-1 text-xs text-surface-400">
-                <FiUsers className="w-3 h-3" />
-                {roomState.members.length}
+            {/* Live viewer count — shows exact real-time count */}
+            <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-surface-800/60 border border-surface-700/30">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-green-400" />
               </span>
-            )}
+              <FiUsers className="w-3 h-3 text-surface-400" />
+              <span className="text-xs font-medium text-surface-300 tabular-nums">
+                {roomState.members.filter(m => (m as any).is_online !== false).length || roomState.members.length}
+              </span>
+            </span>
 
             {/* Copy link */}
             <button
