@@ -155,6 +155,10 @@ CREATE POLICY "Playback states are viewable by everyone"
   ON playback_states FOR SELECT
   USING (true);
 
+CREATE POLICY "Hosts can insert playback state"
+  ON playback_states FOR INSERT
+  WITH CHECK (EXISTS (SELECT 1 FROM room_members WHERE room_id = playback_states.room_id AND user_id = auth.uid() AND role = 'host'));
+
 CREATE POLICY "Hosts can update playback state"
   ON playback_states FOR UPDATE
   USING (EXISTS (SELECT 1 FROM room_members WHERE room_id = playback_states.room_id AND user_id = auth.uid() AND role = 'host'));
