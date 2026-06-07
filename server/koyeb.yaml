@@ -1,0 +1,33 @@
+name: creatorfirst-server
+service:
+  name: server
+  type: web
+  port: 3001
+  instance: nano
+  regions:
+    - was
+  env:
+    - key: NODE_VERSION
+      value: "22"
+    - key: SUPABASE_URL
+      secret: SUPABASE_URL
+    - key: SUPABASE_SERVICE_KEY
+      secret: SUPABASE_SERVICE_KEY
+    - key: YOUTUBE_API_KEY
+      secret: YOUTUBE_API_KEY
+    - key: CORS_ORIGIN
+      value: "https://creatorfirst.vercel.app"
+    - key: PORT
+      value: "3001"
+  routes:
+    - path: /
+      port: 3001
+  health:
+    path: /health
+    initialDelaySeconds: 10
+  scalings:
+    min: 1
+    max: 1
+  build:
+    command: npm run build
+    startCommand: npm start
