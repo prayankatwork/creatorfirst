@@ -209,15 +209,37 @@ export default function RoomPage() {
             {isHost && (
               <div className="px-3 py-2">
                 <VideoInput
-                  onAdd={(url) => {
+                  onAdd={async (url) => {
                     const videoId = extractYoutubeId(url);
-                    if (videoId) {
+                    if (!videoId) return;
+                    // Auto-fetch video title, channel, thumbnail
+                    try {
+                      const res = await fetch(`/api/video-info?id=${videoId}`);
+                      const info = await res.json();
+                      socket.changeVideo({
+                        youtube_video_id: videoId,
+                        title: info.title || '',
+                        channel_name: info.channel_name || '',
+                        channel_avatar: info.channel_avatar || '',
+                      });
+                    } catch {
                       socket.changeVideo({ youtube_video_id: videoId });
                     }
                   }}
-                  onQueueAdd={(url) => {
+                  onQueueAdd={async (url) => {
                     const videoId = extractYoutubeId(url);
-                    if (videoId) {
+                    if (!videoId) return;
+                    try {
+                      const res = await fetch(`/api/video-info?id=${videoId}`);
+                      const info = await res.json();
+                      socket.addToQueue({
+                        youtube_video_id: videoId,
+                        title: info.title || '',
+                        channel_name: info.channel_name || '',
+                        channel_avatar: info.channel_avatar || '',
+                        thumbnail_url: info.thumbnail_url || '',
+                      });
+                    } catch {
                       socket.addToQueue({ youtube_video_id: videoId });
                     }
                   }}
