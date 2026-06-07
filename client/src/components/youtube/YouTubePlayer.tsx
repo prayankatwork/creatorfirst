@@ -44,7 +44,6 @@ export default function YouTubePlayer({
   const isHostRef = useRef(isHost);
   const roomStateRef = useRef(roomState);
   const onSeekRef = useRef(onSeek);
-  const isSeekingRef = useRef(false);
 
   isHostRef.current = isHost;
   roomStateRef.current = roomState;
@@ -104,8 +103,6 @@ export default function YouTubePlayer({
         },
         onStateChange: (event: any) => {
           if (!isHostRef.current) return;
-          if (isSeekingRef.current) return;
-
           const state = event.data;
           if (state === 1) onPlay();
           else if (state === 2) onPause();
