@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
-import { useSocket } from '@/hooks/useSocket';
+import { useRoom } from '@/hooks/useRoom';
 import { FiHome, FiUsers, FiCopy, FiYoutube, FiMaximize2, FiMinimize2 } from 'react-icons/fi';
 import { extractYoutubeId } from '@/lib/utils';
 
@@ -51,7 +51,7 @@ export default function RoomPage() {
   const router = useRouter();
   const slug = params.slug as string;
   const { user } = useAuth();
-  const socket = useSocket();
+  const socket = useRoom();
   const [activePanel, setActivePanel] = useState<'chat' | 'queue' | 'suggestions' | 'analytics'>('chat');
   const [showMobilePanel, setShowMobilePanel] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -62,11 +62,7 @@ export default function RoomPage() {
       // Get session token for socket auth
       const getToken = async () => {
         try {
-          const { createClient } = await import('@/lib/supabase');
-          const supabase = createClient();
-          const { data: { session } } = await supabase.auth.getSession();
-          const token = session?.access_token;
-          socket.joinRoom(slug, token);
+          socket.joinRoom(slug);
         } catch {
           socket.joinRoom(slug);
         }
