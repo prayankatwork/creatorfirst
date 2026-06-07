@@ -76,9 +76,20 @@ export default function HomePage() {
   };
 
   const handleJoinRoom = () => {
-    if (joinSlug.trim()) {
-      router.push(`/room/${joinSlug.trim().toLowerCase()}`);
-    }
+    const input = joinSlug.trim();
+    if (!input) return;
+    
+    // Extract slug from full URL if pasted
+    let slug = input.toLowerCase();
+    try {
+      if (slug.includes('creatorfirst.vercel.app/room/')) {
+        slug = slug.split('creatorfirst.vercel.app/room/')[1]?.split(/[?#]/)[0] || slug;
+      } else if (slug.includes('/room/')) {
+        slug = slug.split('/room/')[1]?.split(/[?#]/)[0] || slug;
+      }
+    } catch {}
+    
+    router.push(`/room/${slug}`);
   };
 
   const features = [
