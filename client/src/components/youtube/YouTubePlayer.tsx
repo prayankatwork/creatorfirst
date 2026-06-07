@@ -42,9 +42,13 @@ export default function YouTubePlayer({
   const [syncState, setSyncState] = useState<SyncState>('connecting');
   const [syncOffset, setSyncOffset] = useState<number>(0);
   const isHostRef = useRef(isHost);
+  const roomStateRef = useRef(roomState);
+  const onSeekRef = useRef(onSeek);
   const isSeekingRef = useRef(false);
 
   isHostRef.current = isHost;
+  roomStateRef.current = roomState;
+  onSeekRef.current = onSeek;
 
   // Load YouTube IFrame API
   useEffect(() => {
@@ -129,13 +133,13 @@ export default function YouTubePlayer({
       if (playerRef.current?.getCurrentTime) {
         try {
           const time = playerRef.current.getCurrentTime();
-          onSeek(time);
+          onSeekRef.current(time);
         } catch {}
       }
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [isHost, isPlayerReady, onSeek]);
+  }, [isHost, isPlayerReady]);
 
   // ── VIEWER: Continuous sync loop every 500ms ──
   useEffect(() => {
@@ -147,14 +151,15 @@ export default function YouTubePlayer({
         if (!playerRef.current?.getCurrentTime) return;
 
         try {
-          const sync = roomState.playback;
+          // Use refs to always read latest values (avoids stale closure)
+          const sync = roomStateRef.current.playback;
           if (!sync) return;
 
           const currentTime = playerRef.current.getCurrentTime();
           const currentState = playerRef.current.getPlayerState();
           const timeDiff = Math.abs(currentTime - sync.timestamp);
 
-          setSyncOffset(Math.round(timeDiff * 10) / 10);
+          setSyncOffset(Math.round(timeDiff * 100) / 100);
 
           // Sync playback state (play/pause)
           if (sync.playback_state === 'playing' && currentState !== 1) {
@@ -168,11 +173,9 @@ export default function YouTubePlayer({
           // Sync position — very aggressive correction for extreme sync
           if (sync.timestamp > 0) {
             if (timeDiff > 0.3) {
-              // Drifted — seek to correct position
               setSyncState('syncing');
               playerRef.current.seekTo(sync.timestamp, true);
             } else if (timeDiff > 0.1) {
-              // Slight drift — show warning but don't seek (smooth playout)
               setSyncState('drifted');
             } else {
               setSyncState('synced');
@@ -189,7 +192,7 @@ export default function YouTubePlayer({
     }, 1000);
 
     return () => clearTimeout(timer);
-  }, [isHost, isPlayerReady, roomState.playback?.youtube_video_id]);
+  }, [isHost, isPlayerReady]);
 
   if (!roomState.playback?.youtube_video_id) {
     return (
