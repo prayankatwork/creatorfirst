@@ -41,15 +41,6 @@ const globalLimiter = rateLimit({
 });
 app.use(globalLimiter);
 
-// Strict rate limit for auth-sensitive routes
-const authLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 20,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: 'Too many requests, slow down.' },
-});
-
 // ============================================
 // Feature 1: YouTube Data API Endpoint
 // ============================================
