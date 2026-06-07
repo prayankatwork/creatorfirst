@@ -79,15 +79,10 @@ export default function HomePage() {
     const input = joinSlug.trim();
     if (!input) return;
     
-    // Extract slug from full URL if pasted
+    // Extract slug from full URL if pasted, otherwise use as-is
     let slug = input.toLowerCase();
-    try {
-      if (slug.includes('creatorfirst.vercel.app/room/')) {
-        slug = slug.split('creatorfirst.vercel.app/room/')[1]?.split(/[?#]/)[0] || slug;
-      } else if (slug.includes('/room/')) {
-        slug = slug.split('/room/')[1]?.split(/[?#]/)[0] || slug;
-      }
-    } catch {}
+    const match = slug.match(/\/room\/([^?#/]+)/);
+    if (match) slug = match[1];
     
     router.push(`/room/${slug}`);
   };
